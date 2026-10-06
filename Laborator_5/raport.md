@@ -52,10 +52,10 @@ Pentru fișierele text, coloana arată primii 8 octeți în hex (nu au o semnăt
 În tot fișierul sunt 16 șiruri imprimabile. În coada lui, după chunk-ul `IEND` (adică după sfârșitul imaginii PNG), apar:
 
 ```
-0bF]k{D
+pF]k{D
 secret.txts
 rLN-.Q
-0bF]k{D
+pF]k{D
 secret.txtPK
 ```
 
@@ -91,10 +91,10 @@ Acest fisier era ascuns dupa IEND.
 
 ### B5-B6. Steganografie LSB
 
-Mesajul ascuns în `stego.png`: `FLAG{ascuns_in_pixeli}` (184 biți, cu un octet 0 la final).
+Mesajul ascuns în `stego.png`: `FLAG{LSB_STEGANOGRAPHY}` (192 biți, cu un octet 0 la final).
 
 Diferența maximă dintre un canal al pozei originale și al celei cu mesaj: **1**, deci poza arată identic cu ochiul liber.
 
-Mesajul dezvăluit înapoi din `stego.png`: **FLAG{ascuns_in_pixeli}**
+Mesajul dezvăluit înapoi din `stego.png`: **FLAG{LSB_STEGANOGRAPHY}**
 
 `stego.png` se salvează în PNG (fără pierdere); un JPG ar recompresa imaginea și ar distruge biții ascunși.

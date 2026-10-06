@@ -16,7 +16,7 @@ from PIL import Image
 RADACINA = Path(__file__).resolve().parent
 SURSA = RADACINA / "probe" / "foto.jpg"
 IESIRE = RADACINA / "stego.png"
-MESAJ = b"FLAG{ascuns_in_pixeli}"
+MESAJ = b"FLAG{LSB_STEGANOGRAPHY}"
 
 
 def ascunde(sursa, mesaj, iesire):
