@@ -1,0 +1,10 @@
+{
+  "intrare": "/Users/user/Downloads/Laborator_5/probe/mesaj.txt",
+  "strat": "hex",
+  "straturi": [
+    "hex",
+    "url",
+    "base64"
+  ],
+  "rezultat": "FLAG{straturi_de_codare!}"
+}
