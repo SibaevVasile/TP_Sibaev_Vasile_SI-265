@@ -42,6 +42,18 @@ def tip_real(cale):
     return cap.hex()
 
 
+def descriere_tip(cale):
+    """Tipul real sau, când nu există semnătură cunoscută, 'text' / 'binar'."""
+    tip = tip_real(cale)
+    if tip in {nume for _, nume in SEMNATURI}:
+        return tip
+    with open(cale, "rb") as f:
+        esantion = f.read(512)
+    if esantion and all(32 <= c < 127 or c in (9, 10, 13) for c in esantion):
+        return "text (fără semnătură)"
+    return "binar (semnătură necunoscută)"
+
+
 # ---------------------------------------------------------------------------
 # B2. strings: textul citibil dintr-un binar
 # ---------------------------------------------------------------------------
@@ -74,7 +86,7 @@ def citeste_exif(cale):
     brut = img.getexif()
     exif = {}
     for id_, val in brut.items():
-        if id_ in (0x8825, 0x8769):       # sunt blocuri (GPS / Exif), se citesc separat
+        if id_ in (0x8825, 0x8769):       # sunt blocuri (GPS / Exif), le citim separat
             continue
         exif[TAGS.get(id_, id_)] = val
     for id_, val in brut.get_ifd(0x8769).items():
@@ -137,7 +149,7 @@ if __name__ == "__main__":
     print("=== B1. Tipul real al fișierelor ===")
     for f in sorted(PROBE.iterdir()):
         if f.is_file() and f.suffix != ".py":
-            print(f"{f.name:16} extensia: {f.suffix or '-':6} tip real: {tip_real(f)}")
+            print(f"{f.name:20} extensia: {f.suffix or '-':6} tip real: {descriere_tip(f)}")
 
     print("\n=== B2. strings din probe/ascuns.png ===")
     toate = strings(PROBE / "ascuns.png")

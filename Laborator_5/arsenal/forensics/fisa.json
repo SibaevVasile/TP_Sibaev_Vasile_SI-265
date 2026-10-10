@@ -1,10 +1,10 @@
 {
-  "intrare": "/Users/user/Downloads/TP_Sibaev_Vasile_SI-265/Laborator_5/probe/mesaj.txt",
-  "strat": "hex",
+  "intrare": "probe/mesaj.txt",
+  "strat": "base64",
   "straturi": [
-    "hex",
-    "url",
-    "base64"
+    "base64",
+    "base64",
+    "hex"
   ],
-  "rezultat": "FLAG{straturi_de_codare!}"
+  "rezultat": "FLAG{straturi_de_encoding}"
 }

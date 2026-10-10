@@ -2,7 +2,8 @@
 # Student: Șibaev Vasile, grupa SI-265
 
 from arsenal.forensics.decode import (
-    citibil, desfa, desface_straturi, ghici_strat, sparge_hash, xor_brute,
+    citibil, desfa, desface_cu_xor, desface_straturi, ghici_strat, sparge_hash,
+    xor_brute,
 )
 
 
@@ -52,3 +53,18 @@ def test_hash_prin_dictionar():
 def test_citibil():
     assert citibil(b"abc 123")
     assert not citibil(b"\x00\x01")
+
+
+def test_base64_peste_xor():
+    import base64
+    clar = b"FLAG{lant_complet_despicat}"
+    val = base64.b64encode(bytes(b ^ 0x80 for b in clar)).decode()
+    straturi, text, cheie = desface_cu_xor(val)
+    assert cheie == 0x80
+    assert text == clar.decode()
+    assert straturi == ["base64", "xor(0x80)"]
+
+
+def test_text_simplu_nu_e_confundat():
+    straturi, text, cheie = desface_cu_xor("Salut lume!")
+    assert straturi == [] and text == "Salut lume!" and cheie is None

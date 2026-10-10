@@ -1,92 +1,79 @@
-# Laborator 5: pregătirea țintelor de laborator
-# Student: Șibaev Vasile, grupa SI-265
-"""Creează în probe/ fișierele pe care le analizăm în laborator.
-"""
+# -*- coding: utf-8 -*-
+# Tehnici de programare, Sesiunea 6 - generatorul tintelor de laborator.
+# Se pune in depozitul de start ca  probe/pregateste.py  si se ruleaza o data:
+#     python probe/pregateste.py
+# Produce, in acelasi folder probe/, fisierele pe care le analizeaza laboratorul.
+# Depinde doar de Pillow (pip install pillow). Nu atinge nimic din afara folderului probe/.
 
+import os
 import base64
 import hashlib
-import io
-import zipfile
-from pathlib import Path
+import random
 from urllib.parse import quote
-
 from PIL import Image
 
-AICI = Path(__file__).resolve().parent
-
-PAROLE = ["sunshine", "dragon", "trustno1"]
-WORDLIST = [
-    "123456", "password", "12345678", "qwerty", "abc123", "monkey", "letmein",
-    "football", "iloveyou", "admin", "welcome", "login", "master", "hello",
-    "freedom", "whatever", "qazwsx", "baseball", "shadow", "michael",
-    "superman", "batman", "princess", "starwars", "cheese", "computer",
-    "internet", "secret", "parola", "chisinau", "moldova", "utm2026",
-] + PAROLE
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 
-def mesaj_straturi():
-    """text -> base64 -> url (quote) -> hex; scris în mesaj.txt"""
-    text = "FLAG{straturi_de_codare!}"
-    strat1 = base64.b64encode(text.encode()).decode()
-    strat2 = quote(strat1, safe="")
-    assert "%" in strat2, "stratul URL trebuie să conțină %xx"
-    strat3 = strat2.encode().hex()
-    (AICI / "mesaj.txt").write_text(strat3 + "\n")
+def scrie(nume, date):
+    cale = os.path.join(HERE, nume)
+    mod = "wb" if isinstance(date, (bytes, bytearray)) else "w"
+    with open(cale, mod, encoding=(None if "b" in mod else "utf-8")) as f:
+        f.write(date)
+    print("  scris:", nume)
 
 
-def mesaj_xor():
-    clar = b"Mesaj XOR: parola este 'trandafir' iar cheia are un singur octet"
-    (AICI / "xor.bin").write_bytes(bytes(b ^ 0x2B for b in clar))
+# 1) mesaj.txt: text ascuns sub trei straturi (base64 -> hex -> base64)
+clar = b"FLAG{straturi_de_encoding}"
+strat_hex = clar.hex().encode()              # text hex, ca octeti
+strat_b64_1 = base64.b64encode(strat_hex)    # base64 peste hex
+strat_b64_2 = base64.b64encode(strat_b64_1)  # inca un base64 deasupra
+scrie("mesaj.txt", strat_b64_2.decode())
 
+# 2) xor.bin: un text clar, criptat cu XOR pe un singur octet
+# Cheia 0x80 este aleasa anume: orice cheie gresita lasa octeti neimprimabili,
+# deci filtrul simplu „toti octetii imprimabili" gaseste prima data exact cheia buna.
+secret = b"Un singur octet tine tot secretul... gaseste-l! FLAG{xor_un_octet}"
+K = 0x80
+scrie("xor.bin", bytes(b ^ K for b in secret))
 
-def hashuri():
-    linii = [
-        hashlib.md5(PAROLE[0].encode()).hexdigest(),
-        hashlib.sha1(PAROLE[1].encode()).hexdigest(),
-        hashlib.sha256(PAROLE[2].encode()).hexdigest(),
-    ]
-    (AICI / "hashuri.txt").write_text("\n".join(linii) + "\n")
-    (AICI / "wordlist.txt").write_text("\n".join(WORDLIST) + "\n")
+# 3) hashuri.txt + wordlist.txt: parole de spart prin dictionar
+parole = ["password", "dragon", "qwerty", "letmein", "monkey"]
+wordlist = ["123456", "football", "iloveyou"] + parole + ["admin", "welcome"]
+random.seed(6); random.shuffle(wordlist)
+scrie("hashuri.txt", "\n".join(hashlib.md5(p.encode()).hexdigest() for p in parole) + "\n")
+scrie("wordlist.txt", "\n".join(wordlist) + "\n")
 
+# 4) foto.jpg: o imagine cu metadate EXIF, inclusiv coordonate GPS (Chisinau)
+img = Image.new("RGB", (640, 480), (70, 110, 160))
+exif = Image.Exif()
+exif[0x010F] = "Apple"                     # Make
+exif[0x0110] = "iPhone 13"                 # Model
+exif[0x0132] = "2026:09:14 10:30:00"       # DateTime
+# GPS IFD: 47.0167 N, 28.8575 E  (grade, minute, secunde ca rationale)
+exif[0x8825] = {
+    1: "N", 2: (47.0, 1.0, 0.0),
+    3: "E", 4: (28.0, 51.0, 27.0),
+}
+img.save(os.path.join(HERE, "foto.jpg"), exif=exif, quality=90)
+print("  scris: foto.jpg")
 
-def poza_gazda(latime=320, inaltime=240):
-    img = Image.new("RGB", (latime, inaltime))
-    pixeli = [((x * 255) // latime, (y * 255) // inaltime, ((x + y) * 255) // (latime + inaltime))
-              for y in range(inaltime) for x in range(latime)]
-    img.putdata(pixeli)
-    return img
+# 5) ascuns.png: o imagine PNG cu o arhiva ZIP lipita la coada (file carving)
+png_path = os.path.join(HERE, "ascuns.png")
+Image.new("RGB", (320, 240), (40, 160, 90)).save(png_path)
+import zipfile, io
+buf = io.BytesIO()
+with zipfile.ZipFile(buf, "w") as z:
+    z.writestr("secret.txt", "FLAG{ascuns_prin_carving}\n")
+with open(png_path, "ab") as f:
+    f.write(buf.getvalue())
+print("  adaugat ZIP la coada: ascuns.png")
 
+# 6) challenge.bin (optional, pentru varful salii): encoding peste XOR
+inner = bytes(b ^ 0x80 for b in b"FLAG{lant_complet_despicat}")
+scrie("challenge.bin", base64.b64encode(inner))
+scrie("challenge_hint.txt",
+      "Un strat de base64 peste un XOR cu cheie de un octet. "
+      "Verificare: md5 al textului clar = " + hashlib.md5(b"FLAG{lant_complet_despicat}").hexdigest() + "\n")
 
-def foto_exif():
-    img = poza_gazda()
-    exif = Image.Exif()
-    exif[0x010F] = "UTM-LAB"                 # Make
-    exif[0x0110] = "Telefon-Demo"            # Model
-    exif[0x0131] = "pregateste.py"           # Software
-    exif[0x8769] = {0x9003: "2026:09:30 14:22:05"}   # DateTimeOriginal
-    exif[0x8825] = {                         # GPS: 47°0'37.8"N 28°51'49.7"E (Chișinău)
-        1: "N", 2: (47.0, 0.0, 37.8),
-        3: "E", 4: (28.0, 51.0, 49.7),
-    }
-    img.save(AICI / "foto.jpg", "JPEG", quality=95, exif=exif)
-
-
-def png_cu_arhiva():
-    img = poza_gazda(256, 256)
-    buf = io.BytesIO()
-    img.save(buf, "PNG")
-    arhiva = io.BytesIO()
-    with zipfile.ZipFile(arhiva, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("secret.txt", "FLAG{fisier_lipit_la_coada}\nAcest fisier era ascuns dupa IEND.\n")
-    (AICI / "ascuns.png").write_bytes(buf.getvalue() + arhiva.getvalue())
-
-
-if __name__ == "__main__":
-    mesaj_straturi()
-    mesaj_xor()
-    hashuri()
-    foto_exif()
-    png_cu_arhiva()
-    print("Fișierele au fost create în", AICI)
-    for f in sorted(AICI.iterdir()):
-        print(" -", f.name)
+print("Gata. Tintele de laborator sunt in:", HERE)

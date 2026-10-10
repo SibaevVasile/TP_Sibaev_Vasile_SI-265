@@ -1,6 +1,12 @@
 # Laborator 5: generează raport.md din rezultatele reale ale uneltelor
 # Student: Șibaev Vasile, grupa SI-265
+"""Rulează uneltele pe fișierele din probe/ și scrie raport.md cu ce a ieșit.
 
+Se rulează după `python probe/pregateste.py`:   python genereaza_raport.py
+"""
+
+import hashlib
+import re
 from pathlib import Path
 
 import forensics as fo
@@ -62,9 +68,9 @@ def sectiunea_b():
     out.append("| Fișier | Extensie | Tip real (magic bytes) |\n|---|---|---|")
     for f in sorted(PROBE.iterdir()):
         if f.is_file() and f.suffix != ".py":
-            out.append(f"| {f.name} | {f.suffix} | {fo.tip_real(f)} |")
-    out.append("\nPentru fișierele text, coloana arată primii 8 octeți în hex "
-               "(nu au o semnătură cunoscută).\n")
+            out.append(f"| {f.name} | {f.suffix} | {fo.descriere_tip(f)} |")
+    out.append("\nTipul se citește din primii octeți (magic bytes), nu din extensie. "
+               "Fișierele text nu au semnătură; `xor.bin` este binar (octeți criptați).\n")
 
     out.append("### B2. strings din `probe/ascuns.png`\n")
     coada = fo.strings_dupa_iend(PROBE / "ascuns.png")
@@ -112,12 +118,35 @@ def sectiunea_b():
     return "\n".join(out)
 
 
+def sectiunea_varf():
+    """Opțional: probe/challenge.bin (strat de base64 peste un XOR)."""
+    cale = PROBE / "challenge.bin"
+    if not cale.exists():
+        return ""
+    out = ["## Vârful sălii: `challenge.bin`\n"]
+    brut = cale.read_text().strip()
+    straturi, text, cheie = dc.desface_cu_xor(brut)
+    out.append(f"Lanțul desfăcut: **{' -> '.join(straturi)}**\n")
+    out.append(f"Cheia XOR: **{cheie}** (`0x{cheie:02x}`)\n" if cheie is not None
+               else "Cheia XOR nu a fost găsită.\n")
+    out.append(f"Textul în clar: **{text}**\n")
+    hint = PROBE / "challenge_hint.txt"
+    if hint.exists():
+        gasit = re.search(r"[0-9a-f]{32}", hint.read_text())
+        if gasit:
+            md5 = hashlib.md5(text.encode()).hexdigest()
+            ok = "se potrivește" if md5 == gasit.group(0) else "NU se potrivește"
+            out.append(f"Verificare: md5 al textului clar = `{md5}`, {ok} cu cel din "
+                       "`challenge_hint.txt`.\n")
+    return "\n".join(out)
+
+
 def main():
     antet = ("# Raport Laborator 5: forensics și steganografie\n\n"
              "Student: Șibaev Vasile, grupa SI-265\n\n"
              "Toate rezultatele de mai jos au fost produse de codul din acest folder, "
              "rulat pe fișierele din `probe/`.\n")
-    cuprins = antet + "\n" + sectiunea_a() + "\n" + sectiunea_b()
+    cuprins = antet + "\n" + sectiunea_a() + "\n" + sectiunea_b() + "\n" + sectiunea_varf()
     (RADACINA / "raport.md").write_text(cuprins, encoding="utf-8")
     # fișa JSON a mesajului decodat (A7)
     dc.main([str(PROBE / "mesaj.txt"), "--fisier"])

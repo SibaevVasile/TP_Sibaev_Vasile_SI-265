@@ -13,6 +13,7 @@ python arsenal/forensics/decode.py probe/hashuri.txt --fisier --hash   # A6
 python forensics.py               # B1-B4
 python stego.py ascunde           # B5: scrie stego.png
 python stego.py dezvaluie         # B6
-python -m pytest                  # testul din A7
+python arsenal/forensics/decode.py probe/challenge.bin --fisier   # vârful sălii
+python -m pytest                  # testele din A7
 python genereaza_raport.py        # scrie raport.md din rezultatele reale
 ```

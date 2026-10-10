@@ -126,15 +126,45 @@ def desface_straturi(val, max_pasi=8):
 # ---------------------------------------------------------------------------
 def xor_brute(date):
     """Încearcă toate cele 256 de chei; întoarce [(cheie, text)] ordonat după
-    cât de mult seamănă textul cu limbajul natural (litere + spații)."""
+    cât de mult seamănă textul cu text real (vezi scor_text)."""
     gasite = []
     for k in range(256):
         clar = bytes(b ^ k for b in date)
         if citibil(clar, tolerant=True):
-            scor = sum(chr(c).isalpha() or c == 32 for c in clar) / len(clar)
-            gasite.append((scor, k, clar.decode()))
+            text = clar.decode()
+            gasite.append((scor_text(text), k, text))
     gasite.sort(reverse=True)
     return [(k, text) for _, k, text in gasite]
+
+
+def scor_text(text):
+    """Cât de mult seamănă `text` cu text real (0..1, poate fi și negativ).
+
+    Cresc scorul literele mici, spațiile, cifrele și punctuația uzuală;
+    îl scad literele mari (într-un text real sunt rare). Un șir făcut doar din
+    litere amestecate la întâmplare nu mai pare „mai bun” decât textul corect.
+    """
+    if not text:
+        return 0.0
+    bune = sum(c.islower() or c.isdigit() or c in " _{}.,!?'-:" for c in text)
+    mari = sum(c.isupper() for c in text)
+    return (bune - 0.5 * mari) / len(text) + 0.0
+
+
+def desface_cu_xor(val, max_pasi=8):
+    """Straturi de codare, urmate (dacă rămân octeți ne-citibili) de un XOR.
+
+    Folosit pentru `challenge.bin`: un strat de base64 peste un XOR cu cheie de
+    un octet. Întoarce (straturi, text_final, cheie_xor_sau_None).
+    """
+    straturi, text, binar = desface_straturi(val, max_pasi)
+    if binar:
+        strat, _ = desfa(text)               # stratul care a dat octeții binari
+        rezultate = xor_brute(bytes.fromhex(binar))
+        if rezultate and scor_text(rezultate[0][1]) >= 0.6:
+            cheie, clar = rezultate[0]
+            return straturi + [strat, f"xor(0x{cheie:02x})"], clar, cheie
+    return straturi, text, None
 
 
 # ---------------------------------------------------------------------------
@@ -171,10 +201,18 @@ def sparge_hash(tinta, cuvinte=None):
 # ---------------------------------------------------------------------------
 # A7. argparse + fișa JSON
 # ---------------------------------------------------------------------------
+def cale_relativa(intrare):
+    """Pentru fișă: calea relativ la Laborator_5 (fără foldere personale)."""
+    try:
+        return Path(intrare).resolve().relative_to(RADACINA).as_posix()
+    except (ValueError, OSError):
+        return intrare
+
+
 def salveaza_fisa(fisa):
     with open(FISA, "w", encoding="utf-8") as f:
         json.dump(fisa, f, indent=2, ensure_ascii=False)
-    print("Fișă salvată în", FISA)
+    print("Fișă salvată în", FISA.relative_to(RADACINA).as_posix())
 
 
 def main(argv=None):
@@ -208,14 +246,14 @@ def main(argv=None):
         if len(rezultate) > 1:
             print(f"({len(rezultate) - 1} chei false dau și ele octeți imprimabili, "
                   "dar fără sens)")
-        salveaza_fisa({"intrare": a.intrare, "strat": "xor",
+        salveaza_fisa({"intrare": cale_relativa(a.intrare) if a.fisier else a.intrare, "strat": "xor",
                        "cheie": k, "rezultat": text})
         return 0
 
     text_in = date.decode("latin1").strip()
 
     if a.hash:
-        fisa = {"intrare": a.intrare, "strat": "hash", "hashuri": []}
+        fisa = {"intrare": cale_relativa(a.intrare) if a.fisier else a.intrare, "strat": "hash", "hashuri": []}
         cuvinte = incarca_wordlist()
         for linie in text_in.splitlines():
             linie = linie.strip()
@@ -229,13 +267,14 @@ def main(argv=None):
         salveaza_fisa(fisa)
         return 0
 
-    straturi, text, binar = desface_straturi(text_in)
+    straturi, text, cheie = desface_cu_xor(text_in)
     print("straturi:", " -> ".join(straturi) or "niciunul")
     print("rezultat:", text)
-    if binar:
-        print("rest binar (hex):", binar)
-    salveaza_fisa({"intrare": a.intrare, "strat": straturi[0] if straturi else "necunoscut",
-                   "straturi": straturi, "rezultat": text})
+    fisa = {"intrare": cale_relativa(a.intrare) if a.fisier else a.intrare, "strat": straturi[0] if straturi else "necunoscut",
+            "straturi": straturi, "rezultat": text}
+    if cheie is not None:
+        fisa["cheie_xor"] = cheie
+    salveaza_fisa(fisa)
     return 0
 
 
